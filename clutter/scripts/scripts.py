@@ -1,7 +1,6 @@
 from __future__ import print_function, unicode_literals
 
 import os
-import toml
 from gettext import install
 
 import click
@@ -88,6 +87,6 @@ def init(root):
             " - Upload to PyPI: 'twine upload dist/*', python package 'twine is required.",
         ]
     )
-    _toml = toml.load("pyproject.toml")
+
     print()
     console.print(Panel(summary))
