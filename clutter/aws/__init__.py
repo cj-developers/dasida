@@ -1,1 +1,1 @@
-from .secrets import get_secret
+from .secrets import *
