@@ -3,9 +3,10 @@ import json
 import logging
 import textwrap
 import warnings
-
 import boto3
 from botocore.exceptions import ClientError
+
+from ..docker import load_secrets
 
 logger = logging.getLogger(__file__)
 
@@ -13,7 +14,11 @@ logger = logging.getLogger(__file__)
 def get_secrets(
     secret_name,
     region_name="ap-northeast-2",
+    load_docker_secret=True,
 ):
+    if load_docker_secret:
+        load_secrets()
+
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(service_name="secretsmanager", region_name=region_name)
