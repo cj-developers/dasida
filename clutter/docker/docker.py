@@ -7,7 +7,10 @@ SECRETS_DELIM = "__"
 logger = logging.getLogger(__file__)
 
 
-def load_secrets(secrets_dir=SECRETS_DIR, secrets_delim=SECRETS_DELIM):
+def load_secrets(
+    secrets_dir: str = SECRETS_DIR,
+    secrets_delim: str = SECRETS_DELIM,
+):
     """
     Read docker secrets and set environment variables.
 

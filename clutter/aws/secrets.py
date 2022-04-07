@@ -3,31 +3,85 @@ import json
 import logging
 import textwrap
 import warnings
+
 import boto3
 from botocore.exceptions import ClientError
 
 from ..docker import load_secrets
 
+# logger
 logger = logging.getLogger(__file__)
 
-
-def get_secrets(
-    secret_name,
+# create client for SecretsManager
+def _create_client(
+    profile_name=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
     region_name="ap-northeast-2",
     load_docker_secret=True,
 ):
+    """Create boto3 secretsmanager client.
+
+    Priority:
+        1. profile_name
+        2. aws_access_key_id & secret_access_key
+        3. docker secret (/run/secret)
+    """
+
+    # session configuration
+    session_conf = dict()
     if load_docker_secret:
         load_secrets()
+    if region_name is not None:
+        session_conf.update({"region_name": region_name})
+    if aws_access_key_id is not None:
+        if aws_secret_access_key is not None:
+            session_conf.update(
+                {
+                    "aws_access_key_id": aws_access_key_id,
+                    "aws_secret_access_key": aws_secret_access_key,
+                }
+            )
+    if profile_name is not None:
+        session_conf = {"profile_name": profile_name}
 
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(service_name="secretsmanager", region_name=region_name)
+    # return clinet
+    session = boto3.session.Session(**session_conf)
+    return session.client(service_name="secretsmanager")
 
+
+# get secrets
+def get_secrets(
+    secret_name: str,
+    profile_name: str = None,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+    region_name: str = "ap-northeast-2",
+    load_docker_secret: bool = True,
+):
+    """Get secrets from AWS SecretsManager.
+
+    Example
+    -------
+    >>> conf = get_secrets("some/secrets")
+    """
+
+    # get client
+    client = _create_client(
+        profile_name=profile_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+        load_docker_secret=load_docker_secret,
+    )
+
+    # get secrets
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
         code = e.response["Error"]["Code"]
         description = textwrap.dedent(ERROR_DESCRIPTIONS["CODE"]).strip("\n")
+        logger.error(code)
         logger.error(description)
         raise e
     else:
@@ -40,15 +94,30 @@ def get_secrets(
     return secrets
 
 
-def list_secrets(shorten=True, region_name="ap-northeast-2"):
+# list secrets
+def list_secrets(
+    profile_name: str = None,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+    region_name: str = "ap-northeast-2",
+    load_docker_secret: bool = True,
+    shorten=True,
+):
     """
     (TODO)
       - filter tags
     """
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(service_name="secretsmanager", region_name=region_name)
 
+    # get client
+    client = _create_client(
+        profile_name=profile_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+        load_docker_secret=load_docker_secret,
+    )
+
+    # get secrets
     opts = {}
     secret_list = []
     while True:
@@ -61,6 +130,7 @@ def list_secrets(shorten=True, region_name="ap-northeast-2"):
 
     if shorten:
         return {x["Name"]: x["Description"] for x in secret_list}
+
     return secret_list
 
 
