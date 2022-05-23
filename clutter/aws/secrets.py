@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from ..docker import load_secrets
 
 # logger
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 # create client for SecretsManager
 def _create_client(

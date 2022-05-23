@@ -24,7 +24,7 @@ def load_secrets(
     """
 
     if not os.path.exists(secrets_dir):
-        logger.info(f"Empty docker secrets - '{secrets_dir}' not exists.")
+        logger.debug(f"No docker secrets - '{secrets_dir}' not exists.")
         return
 
     secrets = {f.name.rsplit(secrets_delim, 1)[0]: f.path for f in os.scandir(secrets_dir) if f.is_file()}
@@ -32,6 +32,6 @@ def load_secrets(
         try:
             with open(fp, "r") as f:
                 os.environ[env] = f.read()
-            logging.info(f"Env. '{env}' is loaded from docker secrets.")
+            logging.debug(f"Env. '{env}' is loaded from docker secrets.")
         except Exception as ex:
             logging.warning(f"Loading env. '{env}' is failed! - {ex}")
