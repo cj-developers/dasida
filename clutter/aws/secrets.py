@@ -1,9 +1,11 @@
+import ast
 import base64
+import fnmatch
 import json
 import logging
 import textwrap
 import warnings
-
+from typing import Union
 import boto3
 from botocore.exceptions import ClientError
 
@@ -13,7 +15,7 @@ from ..docker import load_secrets
 logger = logging.getLogger(__name__)
 
 # create client for SecretsManager
-def _create_client(
+def generate_client(
     profile_name=None,
     aws_access_key_id=None,
     aws_secret_access_key=None,
@@ -50,6 +52,32 @@ def _create_client(
     return session.client(service_name="secretsmanager")
 
 
+# _get_secrets
+def _get_secrets(client, secret_name):
+    # get secrets
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+    except ClientError as e:
+        code = e.response["Error"]["Code"]
+        description = textwrap.dedent(ERROR_DESCRIPTIONS["CODE"]).strip("\n")
+        logger.error(code)
+        logger.error(description)
+        raise e
+    else:
+        if "SecretString" in get_secret_value_response:
+            secrets = get_secret_value_response["SecretString"]
+            try:
+                secrets = json.loads(secrets)
+            except json.JSONDecodeError:
+                secrets = ast.literal_eval(secrets)
+            except Exception as ex:
+                logger.error(f"[CLUTTER] Cannot Decode JSON, {secrets}")
+        else:
+            secrets = base64.b64decode(get_secret_value_response["SecretBinary"])
+
+    return secrets
+
+
 # get secrets
 def get_secrets(
     secret_name: str,
@@ -67,7 +95,7 @@ def get_secrets(
     """
 
     # get client
-    client = _create_client(
+    client = generate_client(
         profile_name=profile_name,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -75,41 +103,27 @@ def get_secrets(
         load_docker_secret=load_docker_secret,
     )
 
-    # get secrets
-    try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    except ClientError as e:
-        code = e.response["Error"]["Code"]
-        description = textwrap.dedent(ERROR_DESCRIPTIONS["CODE"]).strip("\n")
-        logger.error(code)
-        logger.error(description)
-        raise e
-    else:
-        if "SecretString" in get_secret_value_response:
-            secrets = get_secret_value_response["SecretString"]
-            secrets = json.loads(secrets)
-        else:
-            secrets = base64.b64decode(get_secret_value_response["SecretBinary"])
-
-    return secrets
+    return _get_secrets(client, secret_name)
 
 
 # list secrets
 def list_secrets(
+    patterns: Union[str, list] = "*",
     profile_name: str = None,
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
     region_name: str = "ap-northeast-2",
     load_docker_secret: bool = True,
-    shorten=True,
 ):
     """
     (TODO)
       - filter tags
     """
+    # correct args
+    patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
 
     # get client
-    client = _create_client(
+    client = generate_client(
         profile_name=profile_name,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -119,19 +133,31 @@ def list_secrets(
 
     # get secrets
     opts = {}
-    secret_list = []
+    secrets = []
     while True:
         response = client.list_secrets(**opts)
-        secret_list += response.get("SecretList", [])
+        secrets += response.get("SecretList", [])
         next_token = response.get("NextToken")
         if next_token is None:
             break
         opts.update({"NextToken": next_token})
 
-    if shorten:
-        return {x["Name"]: x["Description"] for x in secret_list}
-
-    return secret_list
+    for secret in secrets:
+        secret_name = secret["Name"]
+        if not any([fnmatch.fnmatch(secret_name, f"*{pat.strip('*')}*") for pat in patterns]):
+            continue
+        body = _get_secrets(client, secret_name)
+        print(f"{secret['Name']}")
+        if secret.get("Description"):
+            print(f"  (DESCRIPTION: {secret['Description']})")
+        if isinstance(body, dict):
+            for k, v in body.items():
+                try:
+                    print(f"  - {k}: {v}")
+                except Exception as ex:
+                    logger.error(f"[ERROR] {ex} - {k}, {v}")
+        else:
+            print(f"  - {body}")
 
 
 # [DEPRECATED]
