@@ -1,10 +1,9 @@
 import os
-import logging
+
+from ..logging import logger
 
 SECRETS_DIR = "/run/secrets"
 SECRETS_DELIM = "__"
-
-logger = logging.getLogger(__file__)
 
 
 def load_secrets(
@@ -31,7 +30,11 @@ def load_secrets(
     for env, fp in secrets.items():
         try:
             with open(fp, "r") as f:
-                os.environ[env] = f.read()
-            logging.debug(f"Env. '{env}' is loaded from docker secrets.")
+                lines = f.readlines()
+                for l in lines:
+                    if l.strip() != "":
+                        os.environ[env] = l.rstrip()
+                        break
+            logger.debug(f"Env. '{env}' is loaded from docker secrets.")
         except Exception as ex:
-            logging.warning(f"Loading env. '{env}' is failed! - {ex}")
+            logger.warning(f"Loading env. '{env}' is failed! - {ex}")

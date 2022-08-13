@@ -1,5 +1,6 @@
 import click
-
+import subprocess
+import os
 from .docker import load_secrets, SECRETS_DIR, SECRETS_DELIM
 from .aws import list_secrets
 
@@ -15,6 +16,14 @@ def clutter():
 def list_aws_secrets(patterns, profile):
     patterns = patterns if patterns else "*"
     list_secrets(patterns=patterns, profile_name=profile)
+
+
+@clutter.command()
+@click.argument("cmd", nargs=-1)
+def bash(cmd):
+    load_secrets()
+    env = os.environ.copy()
+    subprocess.Popen(cmd, shell=False, env=env).wait()
 
 
 # [NOTE]
