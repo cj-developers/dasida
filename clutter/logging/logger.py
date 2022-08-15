@@ -6,7 +6,7 @@ LOG_CONF = {
     "disable_existing_loggers": True,
     "formatters": {
         "default": {
-            "format": "%(asctime)s %(levelname)s (pid %(process)d, %(filename)s, line %(lineno)s) %(message)s",
+            "format": "%(asctime)s %(levelname)s (pid %(process)d, %(filename)s:%(lineno)s) %(message)s",
             "datefmt": "",
         },
     },
