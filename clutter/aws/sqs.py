@@ -6,6 +6,7 @@ import boto3
 from pydantic import BaseModel
 
 from ..logging import logger
+from .common import _session_maker, _validate_response
 
 ################################################################
 # Models
@@ -25,20 +26,6 @@ class Message(BaseModel):
     MD5OfMessageBody: str = None
     Body: str = None
     MessageAttributes: dict = None
-
-
-################################################################
-# Helpers
-################################################################
-def _session_maker(session_opts):
-    session_opts = session_opts if session_opts else {}
-    return boto3.Session(**session_opts)
-
-
-def _validate_response(response):
-    meta = response["ResponseMetadata"]
-    if meta["HTTPStatusCode"] != 200:
-        raise ReferenceError(f"status code {meta['HTTPStatusCode']}, {str(meta)}")
 
 
 ################################################################
