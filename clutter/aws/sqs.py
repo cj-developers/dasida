@@ -1,17 +1,19 @@
-from turtle import delay
-from typing import Union, Dict
 import json
 import time
+from turtle import delay
+from typing import Dict, Union
+
 import boto3
 from pydantic import BaseModel
 
 from ..logging import logger
-from .common import _session_maker, _validate_response
+from .common import session_maker, validate_response
+
 
 ################################################################
 # Models
 ################################################################
-class PutMessage(BaseModel):
+class Message(BaseModel):
     Id: str = None
     MessageBody: str = None
     MessageAttributes: dict = None
@@ -20,7 +22,7 @@ class PutMessage(BaseModel):
     MessageGroupId: str = None
 
 
-class Message(BaseModel):
+class ReturnedMessage(BaseModel):
     MessageId: str = None
     ReceiptHandle: str = None
     MD5OfMessageBody: str = None
@@ -31,6 +33,26 @@ class Message(BaseModel):
 ################################################################
 # Queue Hadlers
 ################################################################
+# list queues
+def list_queues(prefix=None, session=None, session_opts=None):
+    session = session if session else session_maker(session_opts=session_opts)
+    client = session.client("sqs")
+
+    paginate_opts = {
+        "QueueNamePrefix": prefix,
+        "PaginationConfig": {},
+    }
+    paginate_opts = {k: v for k, v in paginate_opts.items() if v is not None}
+
+    queue_urls = []
+    paginator = client.get_paginator("list_queues")
+    for response in paginator.paginate(**paginate_opts):
+        for queue_url in response.get("QueueUrls", []):
+            queue_urls.append(queue_url)
+
+    return queue_urls
+
+
 # create queue
 def create_queue(
     queue_name: str,
@@ -52,7 +74,7 @@ def create_queue(
     wait_for_queue_to_ready_sec: int
         queue가 생성된 것을 확인한 후에 response를 반환. (queue 생성은 주문 후 30초 이상 걸리기도 함.)
     """
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("sqs")
 
     _queues = list_queues(prefix=queue_name)
@@ -73,7 +95,7 @@ def create_queue(
         )
         dlq_url = get_queue_url(queue_name=dlq_name, session=session)
         response = client.get_queue_attributes(QueueUrl=dlq_url, AttributeNames=["QueueArn"])
-        _ = _validate_response(response)
+        _ = validate_response(response)
         dlq_arn = response["Attributes"]["QueueArn"]
         redrive_policy = {
             "deadLetterTargetArn": dlq_arn,
@@ -91,7 +113,7 @@ def create_queue(
         QueueName=queue_name,
         Attributes=attributes,
     )
-    _ = _validate_response(response)
+    _ = validate_response(response)
 
     if wait_for_queue_to_ready_sec > 0:
         t0 = time.time()
@@ -124,7 +146,7 @@ def get_queue(
     session: boto3.Session = None,
     session_opts: dict = None,
 ):
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     resource = session.resource("sqs")
 
     for queue in resource.queues.all():
@@ -140,7 +162,7 @@ def get_queue(
             wait_for_queue_to_ready_sec=create_if_not_exists_timeout,
             session=session,
         )
-        _ = _validate_response(response)
+        _ = validate_response(response)
         return get_queue(queue_name=queue_name, session=session)
 
     raise KeyError(f"queue '{queue_name}' not found!")
@@ -152,11 +174,11 @@ def get_queue_url(
     session: boto3.Session = None,
     session_opts: dict = None,
 ):
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("sqs")
 
     response = client.get_queue_url(QueueName=queue_name)
-    _ = _validate_response(response)
+    _ = validate_response(response)
 
     return response["QueueUrl"]
 
@@ -168,7 +190,7 @@ def delete_queue(
     session: boto3.Session = None,
     session_opts: dict = None,
 ):
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("sqs")
 
     if delete_dlq:
@@ -184,34 +206,30 @@ def delete_queue(
 
     queue_url = get_queue_url(queue_name=queue_name)
     response = client.delete_queue(QueueUrl=queue_url)
-    _ = _validate_response(response)
+    _ = validate_response(response)
 
     return response
 
 
-# list queues
-def list_queues(prefix=None, session=None, session_opts=None):
-    session = session if session else _session_maker(session_opts=session_opts)
+# delete queue
+def purge_queue(
+    queue_name: str,
+    session: boto3.Session = None,
+    session_opts: dict = None,
+):
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("sqs")
 
-    paginate_opts = {
-        "QueueNamePrefix": prefix,
-        "PaginationConfig": {},
-    }
-    paginate_opts = {k: v for k, v in paginate_opts.items() if v is not None}
+    queue_url = get_queue_url(queue_name=queue_name)
+    response = client.purge_queue(QueueUrl=queue_url)
+    _ = validate_response(response)
 
-    queue_urls = []
-    paginator = client.get_paginator("list_queues")
-    for response in paginator.paginate(**paginate_opts):
-        for queue_url in response.get("QueueUrls", []):
-            queue_urls.append(queue_url)
-
-    return queue_urls
+    return response
 
 
 # list dead letter source queues
 def list_dead_letter_source_queues(queue_name, session=None, session_opts=None):
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("sqs")
 
     queue_url = get_queue_url(queue_name=queue_name, session=session)
@@ -247,7 +265,7 @@ class Queue:
         session_opts = session_opts if session_opts else {}
 
         # props
-        self.session = session if session else _session_maker(session_opts)
+        self.session = session if session else session_maker(session_opts)
         self.client = self.session.client("sqs")
         self.resource = self.session.resource("sqs")
         self.queue = get_queue(queue_name=queue_name, session=self.session, create_if_not_exists=auto_create_queue)
@@ -258,12 +276,12 @@ class Queue:
             raise ValueError("input 'messages' should be a list!")
 
         # request validator
-        messages = [msg if isinstance(msg, PutMessage) else PutMessage(**msg) for msg in messages]
+        messages = [msg if isinstance(msg, Message) else Message(**msg) for msg in messages]
         entries = [msg.dict(exclude_none=True) for msg in messages]
 
         # send messages
         response = self.queue.send_messages(Entries=entries)
-        _ = _validate_response(response)
+        _ = validate_response(response)
         if "Successful" in response:
             n_send = len(messages)
             n_succeed = len(response["Successful"])
@@ -280,21 +298,21 @@ class Queue:
             MaxNumberOfMessages=max_number_of_messages,
             WaitTimeSeconds=wait_time_seconds,
         )
-        _ = _validate_response(response)
+        _ = validate_response(response)
         if "Messages" in response:
             for msg in response["Messages"]:
                 print(msg)
-            return [Message(**msg) for msg in response["Messages"]]
+            return [ReturnedMessage(**msg) for msg in response["Messages"]]
         return []
 
-    def delete_message(self, receipt_handle_or_message: Union[str, Message]):
-        if isinstance(receipt_handle_or_message, Message):
+    def delete_message(self, receipt_handle_or_message: Union[str, ReturnedMessage]):
+        if isinstance(receipt_handle_or_message, ReturnedMessage):
             receipt_handle_or_message = receipt_handle_or_message.ReceiptHandle
         response = self.client.delete_message(QueueUrl=self.queue_url, ReceiptHandle=receipt_handle_or_message)
-        _ = _validate_response(response)
+        _ = validate_response(response)
         return response
 
     def purge_queue(self):
         response = self.client.purge_queue(QueueUrl=self.queue_url)
-        _ = _validate_response(response)
+        _ = validate_response(response)
         return response

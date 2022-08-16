@@ -1,24 +1,16 @@
 import fnmatch
 import json
 from datetime import datetime
+from tabulate import tabulate
 
 import boto3
 import pendulum
 from pydantic import BaseModel, HttpUrl, ValidationError
 
 from ..logging import logger
-from .common import _session_maker, _validate_response
+from .common import session_maker, validate_response
 
 KST = pendulum.timezone("Asia/Seoul")
-
-SESSION_OPTS = {
-    "aws_access_key_id": None,
-    "aws_secret_access_key": None,
-    "aws_session_token": None,
-    "region_name": None,
-    "botocore_session": None,
-    "profile_name": None,
-}
 
 
 ################################################################
@@ -49,7 +41,7 @@ def list_objects(
     pattern = "*" + pattern if pattern else pattern
 
     # get session
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("s3")
 
     # get list of objects
@@ -67,6 +59,7 @@ def delete_objects(
     bucket: str,
     prefix: str,
     pattern: str = None,
+    confirm: bool = True,
     session: boto3.Session = None,
     session_opts: dict = None,
 ):
@@ -74,11 +67,25 @@ def delete_objects(
     prefix = prefix if prefix else ""
 
     # get session
-    session = session if session else _session_maker(session_opts=session_opts)
+    session = session if session else session_maker(session_opts=session_opts)
     client = session.client("s3")
 
     # list objects to delete
     contents = list_objects(bucket=bucket, prefix=prefix, pattern=pattern, session=session)
+    n_objects = len(contents)
+
+    if n_objects == 0:
+        logger.warning("no objects to delete. exit!")
+        return
+
+    if confirm:
+        print(f"Find {n_objects} Objects to Delete.\n" + tabulate(contents))
+        answer = input("Are You Sure? (yes or no) ")
+        if answer != "yes":
+            print("Exit!")
+            return
+
+    # delete
     if len(contents) > 0:
         # delete objects
         delete = {"Objects": [{"Key": content["Key"]} for content in contents]}
@@ -106,7 +113,7 @@ class Database:
         self.Model = Model
 
         # session
-        self.session = session if session else _session_maker(session_opts=session_opts)
+        self.session = session if session else session_maker(session_opts=session_opts)
         self.client = self.session.client("s3")
         self.resource = self.session.resource("s3")
         self.Bucket = self.resource.Bucket(self.bucket)
@@ -182,7 +189,7 @@ class Database:
 
         try:
             response = self.client.put_object(**params)
-            _validate_response(response)
+            validate_response(response)
             return response
         except Exception as ex:
             logger.error(ex)
@@ -220,7 +227,7 @@ class Database:
 
         try:
             response = self.client.get_object(**params)
-            _validate_response(response)
+            validate_response(response)
         except self.client.exceptions.NoSuchKey:
             return
 
@@ -233,7 +240,7 @@ class Database:
             "Key": self._generate_full_key(key),
         }
         response = self.client.delete_object(**Object)
-        _validate_response(response, success_codes=[200, 204])
+        validate_response(response, success_codes=[200, 204])
         return response
 
     def _generate_full_key(self, key):
