@@ -168,6 +168,48 @@ def get_queue(
     raise KeyError(f"queue '{queue_name}' not found!")
 
 
+# get queue
+def set_queue_attributes(
+    queue_name: str,
+    delay_seconds: int = None,
+    maximum_message_size: int = None,
+    message_retention_period: int = None,
+    receive_message_wait_time_seconds: int = None,
+    dlq_queue_name: str = None,
+    dlq_max_recevice_count: int = None,
+    session: boto3.Session = None,
+    session_opts: dict = None,
+):
+    session = session if session else session_maker(session_opts=session_opts)
+    client = session.client("sqs")
+
+    attributes = {
+        "DelaySeconds": delay_seconds,
+        "MaximumMessageSize": maximum_message_size,
+        "MessageRetentionPeriod": message_retention_period,
+        "ReceviceMessageWaitTimeSeconds": receive_message_wait_time_seconds,
+    }
+    attributes = {k: str(v) for k, v in attributes.items() if v is not None}
+    if dlq_queue_name is not None or dlq_max_recevice_count is not None:
+        dlq_queue_url = get_queue_url(queue_name=dlq_queue_name, session=session)
+        response = client.get_queue_attributes(QueueUrl=dlq_queue_url, AttributeNames=["QueueArn"])
+        _ = validate_response(response)
+        dlq_arn = response["Attributes"]["QueueArn"]
+        redrive_policy = {
+            "deadLetterTargetArn": dlq_arn,
+            "maxReceiveCount": dlq_max_recevice_count,
+        }
+        redrive_policy = {k: str(v) for k, v in redrive_policy.items() if v is not None}
+
+    response = client.set_queue_attributes(
+        QueueUrl=get_queue_url(queue_name),
+        Attributes=attributes,
+    )
+    _ = validate_response(response)
+
+    return response
+
+
 # get queue url
 def get_queue_url(
     queue_name: str,

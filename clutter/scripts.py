@@ -37,7 +37,7 @@ def list_objects(bucket, prefix, pattern, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile": profile}
+    session_opts = {"profile_name": profile}
     session_opts = {k: v for k, v in session_opts.items() if v is not None}
     session = aws.common.session_maker(session_opts=session_opts)
 
@@ -61,7 +61,7 @@ def delete_objects(bucket, prefix, pattern, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile": profile}
+    session_opts = {"profile_name": profile}
     session_opts = {k: v for k, v in session_opts.items() if v is not None}
     session = aws.common.session_maker(session_opts=session_opts)
 
@@ -104,7 +104,7 @@ def list_queues(prefix, profile, log_level):
 
 
 @sqs.command()
-@click.option("--queue-name", type=str, default=None)
+@click.argument("queue-name", type=str, default=None)
 @click.option("--delete-dlq", type=bool, default=True)
 @click.option("--profile", type=str, default=None, help="AWS Profile Name.")
 @click.option("--log-level", type=LogLevel(), default=logging.INFO, help="Log Level.")
@@ -131,7 +131,7 @@ def delete_queue(queue_name, delete_dlq, profile, log_level):
 
 
 @sqs.command()
-@click.option("--queue-name", type=str, default=None)
+@click.argument("queue-name", type=str, default=None)
 @click.option("--profile", type=str, default=None, help="AWS Profile Name.")
 @click.option("--log-level", type=LogLevel(), default=logging.INFO, help="Log Level.")
 def purge_queue(queue_name, profile, log_level):
@@ -154,6 +154,68 @@ def purge_queue(queue_name, profile, log_level):
         return
 
     print(f"Queue '{queue_name}' is Purged.")
+
+
+@sqs.command()
+@click.argument("queue-name", type=str, default=None)
+@click.option("--profile", type=str, default=None, help="AWS Profile Name.")
+@click.option("--log-level", type=LogLevel(), default=logging.INFO, help="Log Level.")
+def get_queue_url(queue_name, profile, log_level):
+    # set log level
+    logger.setLevel(level=log_level)
+
+    # create session
+    session_opts = {"profile_name": profile}
+    session_opts = {k: v for k, v in session_opts.items() if v is not None}
+    session = aws.common.session_maker(session_opts=session_opts)
+
+    # get queue urls
+    try:
+        queue_url = aws.sqs.get_queue_url(queue_name=queue_name, session=session)
+    except KeyError:
+        print(f"No Queue '{queue_name}' was Found. exit!")
+        return
+    except Exception as ex:
+        logger.error(ex)
+        return
+
+    print(f"QueueUrl: {queue_url}")
+
+
+@sqs.command()
+@click.argument("queue-name", type=str, default=None)
+@click.option("--delay-seconds", type=int, default=0)
+@click.option("--visibility-timeout", type=int, default=60)
+@click.option("--dlq_after_received", type=int, default=10, help="Not Create DLQ if This Value is Minus")
+@click.option("--profile", type=str, default=None, help="AWS Profile Name.")
+@click.option("--log-level", type=LogLevel(), default=logging.INFO, help="Log Level.")
+def create_queue(queue_name, delay_seconds, visibility_timeout, dlq_after_received, profile, log_level):
+    # set log level
+    logger.setLevel(level=log_level)
+
+    # create session
+    session_opts = {"profile_name": profile}
+    session_opts = {k: v for k, v in session_opts.items() if v is not None}
+    session = aws.common.session_maker(session_opts=session_opts)
+
+    # get queue urls
+    try:
+        response = aws.sqs.create_queue(
+            queue_name=queue_name,
+            delay_seconds=delay_seconds,
+            visibility_timeout=visibility_timeout,
+            dlq_after_received=dlq_after_received,
+            wait_for_queue_to_ready_sec=60,
+            session=session,
+        )
+    except Exception as ex:
+        print(f"Create Queue '{queue_name}' Failed. Exit!")
+        logger.error(ex)
+        return
+
+    if response is None:
+        return
+    print(f"Queue '{queue_name}' Created. (QueueUrl: {response['QueueUrl']})")
 
 
 ################################################################
