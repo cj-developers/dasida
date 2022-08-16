@@ -30,24 +30,24 @@ def generate_client(
     """
 
     # session configuration
-    session_conf = dict()
+    session_opts = dict()
     if load_docker_secret:
         load_secrets()
     if region_name is not None:
-        session_conf.update({"region_name": region_name})
+        session_opts.update({"region_name": region_name})
     if aws_access_key_id is not None:
         if aws_secret_access_key is not None:
-            session_conf.update(
+            session_opts.update(
                 {
                     "aws_access_key_id": aws_access_key_id,
                     "aws_secret_access_key": aws_secret_access_key,
                 }
             )
     if profile_name is not None:
-        session_conf = {"profile_name": profile_name}
+        session_opts = {"profile_name": profile_name}
 
     # return clinet
-    session = boto3.session.Session(**session_conf)
+    session = boto3.session.Session(**session_opts)
     return session.client(service_name="secretsmanager")
 
 

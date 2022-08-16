@@ -1,3 +1,3 @@
-from . import common, s3, sqs
+from . import common, s3, sqs, secrets
 
-__all__ = ["common", "s3", "sqs"]
+__all__ = ["common", "s3", "sqs", "secrets"]

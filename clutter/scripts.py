@@ -168,7 +168,7 @@ def secrets_manager():
 @click.argument("patterns", default="*")
 @click.option("--profile", default=None)
 def list_secrets(patterns, profile):
-    aws.list_secrets(patterns=patterns, profile_name=profile)
+    aws.secrets.list_secrets(patterns=patterns, profile_name=profile)
 
 
 # [TODO]
