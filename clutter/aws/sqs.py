@@ -1,6 +1,5 @@
 import json
 import time
-from turtle import delay
 from typing import Dict, Union
 
 import boto3
