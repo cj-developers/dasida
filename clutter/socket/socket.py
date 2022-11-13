@@ -1,5 +1,7 @@
+import logging
 import socket
 
+logger = logging.getLogger(__file__)
 
 # get local ip address not 127.0.0.1
 def get_ip():

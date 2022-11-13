@@ -5,9 +5,11 @@ from typing import Dict, Union
 import boto3
 from pydantic import BaseModel
 
-from ..logging import logger
+import logging
 from .common import session_maker, validate_response
 
+
+logger = logging.getLogger(__file__)
 
 ################################################################
 # Models

@@ -1,15 +1,12 @@
 import logging
-import os
-import subprocess
 
-import boto3
 import click
 from click_loglevel import LogLevel
 from tabulate import tabulate
 
-from . import aws, docker
-from .aws.common import session_maker
-from .logging import logger
+from . import aws
+
+logger = logging.getLogger(__file__)
 
 
 @click.group()

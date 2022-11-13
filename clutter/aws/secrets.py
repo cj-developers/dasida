@@ -2,6 +2,7 @@ import ast
 import base64
 import fnmatch
 import json
+import logging
 import textwrap
 import warnings
 from typing import Union
@@ -10,7 +11,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 from ..docker import load_secrets
-from ..logging import logger
+
+logger = logging.getLogger(__file__)
 
 
 # create client for SecretsManager

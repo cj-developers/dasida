@@ -1,6 +1,7 @@
+import logging
 import os
 
-from ..logging import logger
+logger = logging.getLogger(__file__)
 
 SECRETS_DIR = "/run/secrets"
 SECRETS_DELIM = "__"

@@ -1,6 +1,9 @@
+import logging
 import random
 from datetime import datetime
 from typing import Union
+
+logger = logging.getLogger(__file__)
 
 
 def is_test_date(_datetime: Union[str, datetime], *, test_ratio=0.1):

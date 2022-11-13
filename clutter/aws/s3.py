@@ -1,14 +1,16 @@
 import fnmatch
 import json
+import logging
 from datetime import datetime
-from tabulate import tabulate
 
 import boto3
 import pendulum
 from pydantic import BaseModel, HttpUrl, ValidationError
+from tabulate import tabulate
 
-from ..logging import logger
 from .common import session_maker, validate_response
+
+logger = logging.getLogger(__file__)
 
 KST = pendulum.timezone("Asia/Seoul")
 
