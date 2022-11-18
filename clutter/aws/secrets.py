@@ -3,7 +3,6 @@ import base64
 import fnmatch
 import json
 import logging
-import textwrap
 import warnings
 from typing import Union
 
@@ -60,9 +59,11 @@ def _get_secrets(client, secret_name):
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
         code = e.response["Error"]["Code"]
-        description = textwrap.dedent(ERROR_DESCRIPTIONS["CODE"]).strip("\n")
-        logger.error(code)
-        logger.error(description)
+        description = ERROR_DESCRIPTIONS.get(code, "unknown").replace("\n", " ")
+        if code == "ResourceNotFoundException":
+            logger.info(f"{code}: secret '{secret_name}' not found! return None.")
+            return None
+        logger.error(f"{code}: {description}")
         raise e
     else:
         if "SecretString" in get_secret_value_response:
@@ -171,24 +172,14 @@ def get_secret(secret_name, region_name="ap-northeast-2"):
 
 # errors
 ERROR_DESCRIPTIONS = {
-    "DecryptionFailureException": """
-    Secrets Manager can't decrypt the protected secret text using the provided KMS key.
-    Deal with the exception here, and/or rethrow at your discretion.
-    """,
-    "InternalServiceErrorException": """
-    An error occurred on the server side.
-    Deal with the exception here, and/or rethrow at your discretion.
-    """,
-    "InvalidParameterException": """
-    You provided an invalid value for a parameter.
-    Deal with the exception here, and/or rethrow at your discretion.
-    """,
-    "InvalidRequestException": """
-    You provided a parameter value that is not valid for the current state of the resource.
-    Deal with the exception here, and/or rethrow at your discretion.
-    """,
-    "ResourceNotFoundException": """
-    We can't find the resource that you asked for.
-    Deal with the exception here, and/or rethrow at your discretion.
-    """,
+    "DecryptionFailureException": """\
+    Secrets Manager can't decrypt the protected secret text using the provided KMS key.""",
+    "InternalServiceErrorException": """\
+    An error occurred on the server side.""",
+    "InvalidParameterException": """\
+    You provided an invalid value for a parameter.""",
+    "InvalidRequestException": """\
+    You provided a parameter value that is not valid for the current state of the resource.""",
+    "ResourceNotFoundException": """\
+    We can't find the resource that you asked for.""",
 }
