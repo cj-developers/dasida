@@ -34,9 +34,7 @@ def list_objects(bucket, prefix, pattern, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get results
     contents = aws.s3.list_objects(bucket, prefix, pattern, session=session)
@@ -58,9 +56,7 @@ def delete_objects(bucket, prefix, pattern, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get results
     response = aws.s3.delete_objects(bucket, prefix, pattern, session=session)
@@ -91,9 +87,7 @@ def list_queues(prefix, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get queue urls
     queue_urls = aws.sqs.list_queues(prefix=prefix, session=session)
@@ -110,9 +104,7 @@ def delete_queue(queue_name, delete_dlq, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get queue urls
     try:
@@ -136,9 +128,7 @@ def purge_queue(queue_name, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get queue urls
     try:
@@ -162,9 +152,7 @@ def get_queue_url(queue_name, profile, log_level):
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get queue urls
     try:
@@ -191,9 +179,7 @@ def create_queue(queue_name, delay_seconds, visibility_timeout, dlq_after_receiv
     logger.setLevel(level=log_level)
 
     # create session
-    session_opts = {"profile_name": profile}
-    session_opts = {k: v for k, v in session_opts.items() if v is not None}
-    session = aws.common.session_maker(session_opts=session_opts)
+    session = aws.common.session_maker(profile_name=profile)
 
     # get queue urls
     try:
@@ -227,7 +213,22 @@ def secrets_manager():
 @click.argument("patterns", default="*")
 @click.option("--profile", default=None)
 def list_secrets(patterns, profile):
-    aws.secrets.list_secrets(patterns=patterns, profile_name=profile)
+    aws.secrets_manager.list_secrets(patterns=patterns, profile_name=profile)
+
+
+################################################################
+# AWS SecretsManager
+################################################################
+@clutter.group()
+def ssm():
+    pass
+
+
+@ssm.command()
+@click.argument("patterns", default="*")
+@click.option("--profile", default=None)
+def list_parameters(patterns, profile):
+    aws.ssm.list_parameters(patterns=patterns, profile_name=profile)
 
 
 # [TODO]

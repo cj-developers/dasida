@@ -1,0 +1,3 @@
+
+--extra-index-url http://pypi.ml.xscope.ai/simple
+--trusted-host pypi.ml.xscope.ai

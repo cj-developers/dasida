@@ -8,50 +8,15 @@ from typing import Union
 
 import boto3
 from botocore.exceptions import ClientError
+from rich import print
 
-from ..docker import load_secrets
+from .common import session_maker
 
 logger = logging.getLogger(__file__)
 
-
-# create client for SecretsManager
-def generate_client(
-    profile_name=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
-    region_name="ap-northeast-2",
-    load_docker_secret=True,
-):
-    """Create boto3 secretsmanager client.
-
-    Priority:
-        1. profile_name
-        2. aws_access_key_id & secret_access_key
-        3. docker secret (/run/secret)
-    """
-
-    # session configuration
-    session_opts = dict()
-    if load_docker_secret:
-        load_secrets()
-    if region_name is not None:
-        session_opts.update({"region_name": region_name})
-    if aws_access_key_id is not None:
-        if aws_secret_access_key is not None:
-            session_opts.update(
-                {
-                    "aws_access_key_id": aws_access_key_id,
-                    "aws_secret_access_key": aws_secret_access_key,
-                }
-            )
-    if profile_name is not None:
-        session_opts = {"profile_name": profile_name}
-
-    # return clinet
-    session = boto3.session.Session(**session_opts)
-    return session.client(service_name="secretsmanager")
-
-
+################################################################
+# HELPERS
+################################################################
 # _get_secrets
 def _get_secrets(client, secret_name):
     # get secrets
@@ -80,34 +45,9 @@ def _get_secrets(client, secret_name):
     return secrets
 
 
-# get secrets
-def get_secrets(
-    secret_name: str,
-    profile_name: str = None,
-    aws_access_key_id: str = None,
-    aws_secret_access_key: str = None,
-    region_name: str = "ap-northeast-2",
-    load_docker_secret: bool = True,
-):
-    """Get secrets from AWS SecretsManager.
-
-    Example
-    -------
-    >>> conf = get_secrets("some/secrets")
-    """
-
-    # get client
-    client = generate_client(
-        profile_name=profile_name,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name,
-        load_docker_secret=load_docker_secret,
-    )
-
-    return _get_secrets(client, secret_name)
-
-
+################################################################
+# FUNCTIONS
+################################################################
 # list secrets
 def list_secrets(
     patterns: Union[str, list] = "*",
@@ -116,25 +56,28 @@ def list_secrets(
     aws_secret_access_key: str = None,
     region_name: str = "ap-northeast-2",
     load_docker_secret: bool = True,
+    session: boto3.Session = None,
 ):
     """
     (TODO)
       - filter tags
     """
     # correct args
-    patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
+    if patterns:
+        patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
 
     # get client
-    client = generate_client(
+    session = session or session_maker(
         profile_name=profile_name,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
         region_name=region_name,
         load_docker_secret=load_docker_secret,
     )
+    client = session.client("secretsmanager")
 
     # get secrets
-    opts = {}
+    opts = {"MaxResults": 100}
     secrets = []
     while True:
         response = client.list_secrets(**opts)
@@ -149,17 +92,45 @@ def list_secrets(
         if not any([fnmatch.fnmatch(secret_name, f"*{pat.strip('*')}*") for pat in patterns]):
             continue
         body = _get_secrets(client, secret_name)
-        print(f"{secret['Name']}")
+        print(f"[[bold]{secret['Name']}[/bold]]")
         if secret.get("Description"):
-            print(f"  (DESCRIPTION: {secret['Description']})")
+            print(f" DESCRIPTION: {secret['Description']}")
+        print(" VALUES:")
         if isinstance(body, dict):
             for k, v in body.items():
-                try:
-                    print(f"  - {k}: {v}")
-                except Exception as ex:
-                    logger.error(f"[ERROR] {ex} - {k}, {v}")
+                print(f"  - {k}: {v}")
         else:
             print(f"  - {body}")
+
+
+# get secrets
+def get_secrets(
+    secret_name: str,
+    profile_name: str = None,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+    region_name: str = "ap-northeast-2",
+    load_docker_secret: bool = True,
+    session: boto3.Session = None,
+):
+    """Get secrets from AWS SecretsManager.
+
+    Example
+    -------
+    >>> conf = get_secrets("some/secrets")
+    """
+
+    # get client
+    session = session or session_maker(
+        profile_name=profile_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+        load_docker_secret=load_docker_secret,
+    )
+    client = session.client("secretsmanager")
+
+    return _get_secrets(client, secret_name)
 
 
 # [DEPRECATED]
