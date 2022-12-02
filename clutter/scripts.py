@@ -228,8 +228,6 @@ def ssm():
 @click.argument("patterns", default="*")
 @click.option("--profile", default=None)
 def list_parameters(patterns, profile):
-    if patterns == "*":
-        patterns = None
     session = aws.common.session_maker(profile_name=profile)
     aws.ssm.list_parameters(patterns=patterns, session=session)
 
