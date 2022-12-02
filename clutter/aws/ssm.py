@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import logging
 from typing import Union
@@ -36,18 +37,21 @@ def list_parameters(
     Returns:
         list: list of parameters
     """
+    # correct args
+    if patterns:
+        patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
+
     # get client
     session = session or session_maker()
     client = session.client("ssm")
 
     parameter_filters = [{"Key": "Name", "Option": "BeginsWith", "Values": [f"/{PS_PREFIX}"]}]
-    if patterns:
-        patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
-        parameter_filters.append({"Key": "Name", "Option": "Contains", "Values": patterns})
     resp = client.describe_parameters(ParameterFilters=parameter_filters)
 
     for param in resp["Parameters"]:
         _, name = param["Name"].strip("/").split("/")
+        if not any([fnmatch.fnmatch(name, f"*{pat.strip('*')}*") for pat in patterns]):
+            continue
         print(f"[[bold]{name}[/bold]]")
         if param.get("Description"):
             print(f" DESCRIPTION: {param['Description']}")
