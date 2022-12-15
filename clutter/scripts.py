@@ -5,6 +5,7 @@ from click_loglevel import LogLevel
 from tabulate import tabulate
 
 from . import aws
+import os
 
 logger = logging.getLogger(__file__)
 
@@ -217,7 +218,7 @@ def list_secrets(patterns, profile):
 
 
 ################################################################
-# AWS SecretsManager
+# AWS Systems Manager
 ################################################################
 @clutter.group()
 def ssm():
@@ -230,6 +231,29 @@ def ssm():
 def list_parameters(patterns, profile):
     session = aws.common.session_maker(profile_name=profile)
     aws.ssm.list_parameters(patterns=patterns, session=session)
+
+
+@ssm.command()
+@click.argument("name")
+@click.option("--filename", default=".env")
+@click.option("--profile", default=None)
+@click.option("-y", "--yes", is_flag=True, help="Force Overwrite If '.env' Exists.")
+def update_dotenv(name, filename, profile, yes):
+    from .utils import read_env_file, write_env_file
+
+    session = aws.common.session_maker(profile_name=profile)
+    parameters = aws.ssm.get_parameters(name=name, session=session)
+    if os.path.exists(filename) and not yes:
+        cur_parameters = read_env_file(filename)
+        if parameters == cur_parameters:
+            print("Nothing to update. Already up to date. exit.")
+            return
+        confirm = input(f"env_file '{filename}' already exists. overwrite? (y/N) ")
+        if confirm.lower() not in ["y", "yes"]:
+            print("EXIT!")
+            return
+    write_env_file(parameters)
+    print(f"env_file '{filename}' is updated.")
 
 
 # [TODO]

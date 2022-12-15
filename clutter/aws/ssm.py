@@ -38,6 +38,7 @@ def list_parameters(
         list: list of parameters
     """
     # correct args
+    patterns = patterns or "*"
     if patterns:
         patterns = patterns if isinstance(patterns, (tuple, list)) else [patterns]
 
