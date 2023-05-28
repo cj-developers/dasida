@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 logger = logging.getLogger(__file__)
 
@@ -27,14 +28,14 @@ def load_secrets(
         logger.debug(f"No docker secrets - '{secrets_dir}' not exists.")
         return
 
-    secrets = {f.name.rsplit(secrets_delim, 1)[0]: f.path for f in os.scandir(secrets_dir) if f.is_file()}
-    for env, fp in secrets.items():
+    SECRET_DIR = Path(SECRETS_DIR)
+    for env, fp in [(x.name.rsplit(secrets_delim, 1)[0], x) for x in SECRET_DIR.glob("*") if x.is_file()]:
         try:
             with open(fp, "r") as f:
                 lines = f.readlines()
-                for l in lines:
-                    if l.strip() != "":
-                        os.environ[env] = l.rstrip()
+                for line in lines:
+                    if line.strip() != "":
+                        os.environ[env] = line.rstrip()
                         break
             logger.debug(f"Env. '{env}' is loaded from docker secrets.")
         except Exception as ex:

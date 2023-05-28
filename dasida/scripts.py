@@ -11,14 +11,29 @@ logger = logging.getLogger(__file__)
 
 
 @click.group()
-def clutter():
+def dasida():
     pass
+
+
+################################################################
+# AWS SecretsManager
+################################################################
+@dasida.group()
+def secrets_manager():
+    pass
+
+
+@secrets_manager.command()
+@click.argument("patterns", default="*")
+@click.option("--profile", default=None)
+def list(patterns, profile):
+    aws.secrets_manager.list_secrets(patterns=patterns, profile_name=profile)
 
 
 ################################################################
 # AWS S3
 ################################################################
-@clutter.group()
+@dasida.group()
 def s3():
     pass
 
@@ -74,7 +89,7 @@ def delete_objects(bucket, prefix, pattern, profile, log_level):
 ################################################################
 # AWS SQS
 ################################################################
-@clutter.group()
+@dasida.group()
 def sqs():
     pass
 
@@ -92,7 +107,7 @@ def list_queues(prefix, profile, log_level):
 
     # get queue urls
     queue_urls = aws.sqs.list_queues(prefix=prefix, session=session)
-    print(f"List of Queues.\n" + tabulate([(q.rsplit("/", 1)[-1], q) for q in sorted(queue_urls)]))
+    print("List of Queues.\n" + tabulate([(q.rsplit("/", 1)[-1], q) for q in sorted(queue_urls)]))
 
 
 @sqs.command()
@@ -200,75 +215,3 @@ def create_queue(queue_name, delay_seconds, visibility_timeout, dlq_after_receiv
     if response is None:
         return
     print(f"Queue '{queue_name}' Created. (QueueUrl: {response['QueueUrl']})")
-
-
-################################################################
-# AWS SecretsManager
-################################################################
-@clutter.group()
-def secrets_manager():
-    pass
-
-
-@secrets_manager.command()
-@click.argument("patterns", default="*")
-@click.option("--profile", default=None)
-def list_secrets(patterns, profile):
-    aws.secrets_manager.list_secrets(patterns=patterns, profile_name=profile)
-
-
-################################################################
-# AWS Systems Manager
-################################################################
-@clutter.group()
-def ssm():
-    pass
-
-
-@ssm.command()
-@click.argument("patterns", default="*")
-@click.option("--profile", default=None)
-def list_parameters(patterns, profile):
-    session = aws.common.session_maker(profile_name=profile)
-    aws.ssm.list_parameters(patterns=patterns, session=session)
-
-
-@ssm.command()
-@click.argument("name")
-@click.option("--filename", default=".env")
-@click.option("--profile", default=None)
-@click.option("-y", "--yes", is_flag=True, help="Force Overwrite If '.env' Exists.")
-def update_dotenv(name, filename, profile, yes):
-    from .utils import read_env_file, write_env_file
-
-    session = aws.common.session_maker(profile_name=profile)
-    parameters = aws.ssm.get_parameters(name=name, session=session)
-    if os.path.exists(filename) and not yes:
-        cur_parameters = read_env_file(filename)
-        if parameters == cur_parameters:
-            print("Nothing to update. Already up to date. exit.")
-            return
-        confirm = input(f"env_file '{filename}' already exists. overwrite? (y/N) ")
-        if confirm.lower() not in ["y", "yes"]:
-            print("EXIT!")
-            return
-    write_env_file(parameters)
-    print(f"env_file '{filename}' is updated.")
-
-
-# [TODO]
-# 아직 동작 안 함
-# @clutter.command()
-# @click.argument("cmd", nargs=-1)
-# def bash(cmd):
-#     docker.load_secrets()
-#     subprocess.Popen(cmd, shell=False, env=dict(os.environ)).wait()
-
-
-# [NOTE]
-# Child Process Cannot Load Parent's Environment Variables!
-# @clutter.command()
-# @click.option("--secrets-dir", type=click.Path(exists=True, file_okay=False), default=SECRETS_DIR, show_default=True)
-# @click.option("--secrets-delim", type=str, default=SECRETS_DELIM, show_default=True)
-# def load_envs_from_docker_secrets(secrets_dir, secrets_delim):
-#     load_secrets(secrets_dir=secrets_dir, secrets_delim=secrets_delim)

@@ -3,7 +3,6 @@ import base64
 import fnmatch
 import json
 import logging
-import warnings
 from typing import Union
 
 import boto3
@@ -13,6 +12,7 @@ from rich import print
 from .common import session_maker
 
 logger = logging.getLogger(__file__)
+
 
 ################################################################
 # HELPERS
@@ -131,14 +131,6 @@ def get_secrets(
     client = session.client("secretsmanager")
 
     return _get_secrets(client, secret_name)
-
-
-# [DEPRECATED]
-def get_secret(secret_name, region_name="ap-northeast-2"):
-    _warn = "'get_secret' will be deprecated soon, use 'get_secrets'!"
-    warnings.warn(_warn, FutureWarning)
-
-    return get_secrets(secret_name=secret_name, region_name=region_name)
 
 
 # errors
