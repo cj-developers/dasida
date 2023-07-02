@@ -19,15 +19,15 @@ def dasida():
 # AWS SecretsManager
 ################################################################
 @dasida.group()
-def secrets_manager():
+def secretsmanager():
     pass
 
 
-@secrets_manager.command()
+@secretsmanager.command()
 @click.argument("patterns", default="*")
 @click.option("--profile", default=None)
 def list(patterns, profile):
-    aws.secrets_manager.list_secrets(patterns=patterns, profile_name=profile)
+    aws.secretsmanager.list_secrets(patterns=patterns, profile_name=profile)
 
 
 ################################################################
