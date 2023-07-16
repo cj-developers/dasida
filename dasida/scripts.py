@@ -71,7 +71,10 @@ def create(secret_name, profile):
         print(f" - {k}: {v}")
 
     proceed = inquirer.confirm(message="Confirm?", default=False).execute()
-    _ = aws.secretsmanager.create_secrets(secret_name=secret_name, secrets=secrets, profile_name=profile)
+    if proceed:
+        _ = aws.secretsmanager.create_secrets(secret_name=secret_name, secrets=secrets, profile_name=profile)
+    else:
+        logger.error("Abort!")
 
 
 ################################################################
