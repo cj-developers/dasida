@@ -1,11 +1,12 @@
 import logging
+import os
 
 import click
 from click_loglevel import LogLevel
+from InquirerPy import prompt, inquirer
 from tabulate import tabulate
 
 from . import aws
-import os
 
 logger = logging.getLogger(__file__)
 
@@ -28,6 +29,49 @@ def secretsmanager():
 @click.option("--profile", default=None)
 def list(patterns, profile):
     aws.secretsmanager.list_secrets(patterns=patterns, profile_name=profile)
+
+
+@secretsmanager.command()
+@click.argument("secret_name")
+@click.option("--profile", default=None)
+def get(secret_name, profile):
+    secrets = aws.secretsmanager.get_secrets(secret_name=secret_name, profile_name=profile)
+    print(f"Secret '{secret_name}':")
+    for k, v in secrets.items():
+        print(f" - {k}: {v}")
+
+
+@secretsmanager.command()
+@click.argument("secret_name")
+@click.option("--profile", default=None)
+def delete(secret_name, profile):
+    _ = aws.secretsmanager.delete_secrets(secret_name=secret_name, profile_name=profile)
+    print(f"Secret '{secret_name}' is deleted!")
+
+
+@secretsmanager.command()
+@click.argument("secret_name")
+@click.option("--profile", default=None)
+def create(secret_name, profile):
+    if aws.secretsmanager.get_secrets(secret_name=secret_name, profile_name=profile):
+        logger.error("Secret '{}' is already exist!".format(secret_name))
+        return
+
+    secrets = dict()
+    while True:
+        key = inquirer.text(message="Key:").execute()
+        value = inquirer.text(message="Value:").execute()
+        secrets.update({key: value})
+        proceed = inquirer.confirm(message="Add New Key-Value?").execute()
+        if not proceed:
+            break
+
+    print(f"\nAdd new secret '{secret_name}' as follows?:")
+    for k, v in secrets.items():
+        print(f" - {k}: {v}")
+
+    proceed = inquirer.confirm(message="Confirm?", default=False).execute()
+    _ = aws.secretsmanager.create_secrets(secret_name=secret_name, secrets=secrets, profile_name=profile)
 
 
 ################################################################
