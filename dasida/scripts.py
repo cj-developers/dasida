@@ -36,9 +36,10 @@ def list(patterns, profile):
 @click.option("--profile", default=None)
 def get(secret_name, profile):
     secrets = aws.secretsmanager.get_secrets(secret_name=secret_name, profile_name=profile)
-    print(f"Secret '{secret_name}':")
-    for k, v in secrets.items():
-        print(f" - {k}: {v}")
+    if secrets:
+        print(f"Secret '{secret_name}':")
+        for k, v in secrets.items():
+            print(f" - {k}: {v}")
 
 
 @secretsmanager.command()
@@ -73,6 +74,41 @@ def create(secret_name, profile):
     proceed = inquirer.confirm(message="Confirm?", default=False).execute()
     if proceed:
         _ = aws.secretsmanager.create_secrets(secret_name=secret_name, secrets=secrets, profile_name=profile)
+    else:
+        logger.error("Abort!")
+
+
+@secretsmanager.command()
+@click.argument("secret_name")
+@click.option("--profile", default=None)
+def update(secret_name, profile):
+    secrets = aws.secretsmanager.get_secrets(secret_name=secret_name, profile_name=profile)
+    if not secrets:
+        msg = f"Secret name '{secret_name}' not found!"
+        raise KeyError(msg)
+
+    new_secrets = dict()
+    for k, v in secrets.items():
+        key = inquirer.text(message="Key:", default=k).execute()
+        value = inquirer.text(message="Value:", default=v).execute()
+        if value:
+            new_secrets.update({key: value})
+
+    while True:
+        proceed = inquirer.confirm(message="Add New Key-Value?").execute()
+        if not proceed:
+            break
+        key = inquirer.text(message="Key:").execute()
+        value = inquirer.text(message="Value:").execute()
+        new_secrets.update({key: value})
+
+    print(f"\nUpdate secret '{secret_name}' as follows?:")
+    for k, v in new_secrets.items():
+        print(f" - {k}: {v}")
+
+    proceed = inquirer.confirm(message="Confirm?", default=False).execute()
+    if proceed:
+        _ = aws.secretsmanager.update_secrets(secret_name=secret_name, secrets=new_secrets, profile_name=profile)
     else:
         logger.error("Abort!")
 

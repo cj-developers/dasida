@@ -11,6 +11,7 @@ SESSION_OPTS = {
     "profile_name": None,
 }
 
+
 ################################################################
 # Helpers
 ################################################################
@@ -48,7 +49,7 @@ def session_maker(
     if profile_name is not None:
         session_opts = {"profile_name": profile_name}
 
-    # return clinet
+    # return client
     return boto3.session.Session(**session_opts)
 
 
